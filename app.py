@@ -23,7 +23,7 @@ def home():
         gender = 'all'
 
     if not year:
-         year = 2020
+         year = 2019
     else:
          year = int(year)
 
@@ -70,6 +70,137 @@ def home():
 
     return jsonify(
         data=list(data.values())
+    )
+
+@app.route('/population')
+def population():
+    headers = ['year', 'level_1', 'level_2', 'value']
+    dtypes = {'year': 'float', 'level_1': 'str', 'level_2': 'str', 'value': 'float'}
+    df = pd.read_csv( os.path.join(__location__, 'data.csv') , sep=',', header=0, names=headers, dtype=dtypes, na_values=["na"])
+
+    graph_data = df[(~df["level_2"].str.contains("Over"))]
+
+    gender = request.args.get('gender')
+    
+    if not gender:
+        gender = 'all'
+
+    if gender == "all":
+        graph_data = graph_data[graph_data.level_1 == "Total Residents"]
+    elif gender == "male":
+        graph_data = graph_data[graph_data.level_1 == "Total Male Residents"]
+    else:
+        graph_data = graph_data[graph_data.level_1 == "Total Female Residents"]
+
+    graph_data = graph_data.groupby(['year', 'level_1'])
+    total_population = []
+
+    for i, v in graph_data['value'].agg(np.sum).iteritems():
+        
+        total_population.append({
+            "x": i[0],
+            "y":v
+        })
+    
+    return jsonify(
+        data=list(total_population)
+    )
+
+@app.route('/ethnic_groups')
+def ethnicGroupPopulation():
+    headers = ['year', 'level_1', 'level_2', 'value']
+    dtypes = {'year': 'float', 'level_1': 'str', 'level_2': 'str', 'value': 'float'}
+    df = pd.read_csv( os.path.join(__location__, 'data.csv') , sep=',', header=0, names=headers, dtype=dtypes, na_values=["na"])
+
+    graph_data = df[(df.level_1 != "Total Residents") & (~df["level_2"].str.contains("Over"))]
+
+    year = request.args.get('year')
+    gender = request.args.get('gender')
+    
+    if not gender:
+        gender = 'all'
+    
+    if not year:
+        year = 2019
+    else:
+        year = int(year)
+    
+    graph_data = graph_data[graph_data.year == year]
+
+    if gender == "all":
+        graph_data = graph_data[(~graph_data["level_1"].str.contains("Male")) & (~graph_data["level_1"].str.contains("Female"))]
+    elif gender == "male":
+        graph_data = graph_data[ (graph_data["level_1"] != "Total Male Residents") & (graph_data["level_1"].str.contains("Male"))]
+    else:
+        graph_data = graph_data[ (graph_data["level_1"] != "Total Female Residents") & (graph_data["level_1"].str.contains("Female"))]
+
+    graph_data = graph_data.groupby(['year', 'level_1'])
+    ethnic_population = []
+
+    for i, v in graph_data['value'].agg(np.sum).iteritems():
+        
+        t = i[1].replace('Total','').replace(" Ethnic Groups ()","")
+        t = t.replace("Males",'').replace("Male",'').replace("Females",'').replace("Female",'')
+        t = t.strip()
+        
+        ethnic_population.append({
+            "id": t,
+            "label": t,
+            "value": v
+        })
+    
+    return jsonify(
+        data=list(ethnic_population)
+    )
+
+@app.route('/age_groups')
+def ageGroupPopulation():
+    headers = ['year', 'level_1', 'level_2', 'value']
+    dtypes = {'year': 'float', 'level_1': 'str', 'level_2': 'str', 'value': 'float'}
+    df = pd.read_csv( os.path.join(__location__, 'data.csv') , sep=',', header=0, names=headers, dtype=dtypes, na_values=["na"])
+
+    graph_data = df[(df.level_1 != "Total Residents") & (~df["level_2"].str.contains("Over"))]
+
+    year = request.args.get('year')
+    gender = request.args.get('gender')
+    
+    if not gender:
+        gender = 'all'
+    
+    if not year:
+        year = 2019
+    else:
+        year = int(year)
+    
+    graph_data = graph_data[graph_data.year == year]
+
+    if gender == "all":
+        graph_data = graph_data[(~graph_data["level_1"].str.contains("Male")) & (~graph_data["level_1"].str.contains("Female"))]
+    elif gender == "male":
+        graph_data = graph_data[ (graph_data["level_1"] != "Total Male Residents") & (graph_data["level_1"].str.contains("Male"))]
+    else:
+        graph_data = graph_data[ (graph_data["level_1"] != "Total Female Residents") & (graph_data["level_1"].str.contains("Female"))]
+
+    graph_data = graph_data.groupby(['year', 'level_2'])
+
+    age_population = []
+
+    for i, v in graph_data['value'].agg(np.sum).iteritems():
+        
+        t = i[1].replace('Total','').replace(" Ethnic Groups ()","")
+        t = t.replace("Years", '').strip()
+
+        
+        age_population.append({
+            "age group": t,
+            "population": v
+        })
+    
+    if len(age_population) > 9:
+        age_population.insert(1, age_population.pop(9))
+        
+    return jsonify(
+        data=list(age_population)
     )
 
     if __name__ == "__main__":
